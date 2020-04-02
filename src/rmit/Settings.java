@@ -1,11 +1,9 @@
 package rmit;
 
 public class Settings {
-	public static String project_path = "E:/5.Programming/IDE-Workspaces/Eclipse-General/BDM_A2";//change to local directory.
 	
-	//Bug here - path not found?
+	public static String project_path = "E:/5.Programming/IDE-Workspaces/Eclipse-General/BDM_A2/";//change to local directory.
 	public static String rtree_index_location = project_path + "index/poi";
-	
 	public static String trip_ids = project_path + "index/la_trips.txt";
 	public static String points_location = project_path + "index/la_points.txt";
 	public static String db_name = "triphobo";
