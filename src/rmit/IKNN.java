@@ -117,15 +117,18 @@ public class IKNN {
 				System.out.println("Query Point Index: " + index + " Points: " + S.size());
 
 				for (Point point : S) {
-
+					
 					// 1. stores the farthest point as an upper bound, i.e., update UB_points.
-					if (UB_points.get(index) == null) {
-						UB_points.set(index, point);
-					} else if (point.getMinimumDistance(points[i]) > UB_points.get(index)
-							.getMinimumDistance(points[i])) {
-						UB_points.set(index, point);
+					if (UB_points.get(i) == null) {
+						UB_points.set(i, point);
+					} else {
+						if (UB_points.get(i).getMinimumDistance(points[i]) < point.getMinimumDistance(points[i])) {
+							UB_points.set(i, point);
+						}
 					}
-
+					
+					
+					
 					/* 2. finds trajectory ids for each point and stores those trajectories in candidate
 					 set, i.e., update candidates.*/
 					
@@ -160,8 +163,9 @@ public class IKNN {
 
 				PriorityQueue<Double> LB = new PriorityQueue<>(Collections.reverseOrder());
 				// add candidate trajectory distance to query in descending order
-				for (Map.Entry<String, ArrayList<Point>> entry : candidates.entrySet()) {
-					// ** Impliment computeLowerBound() **
+				//Compute LB for all trajectories in cadidates
+				for (Map.Entry<String, ArrayList<Point>> entry : candidates.entrySet()) {					
+					//Compute LowerBound 
 					double tmp_dist = computeLowerBound(entry.getValue(), points);
 					LB.add(tmp_dist);
 				}
@@ -174,9 +178,14 @@ public class IKNN {
 
 				// computes upper bound value using farthest point we found so far for each
 				// query point.
+				
 				// ** Impliment computeUpperBound() **
 				double UB = computeUpperBound(UB_points, points);
-
+				
+				for (int i = 0; i < UB_points.size(); i++) {
+					System.out.println(UB_points.get(i));
+				}
+				
 				System.out.println("Current UB: " + UB + " Current k-th LB: " + k_LB);
 
 				if (k_LB >= UB) {
@@ -264,21 +273,35 @@ public class IKNN {
 	// 4 compute the lower bound distance of k-th results
 	private double computeLowerBound(ArrayList<Point> p, Point[] points) {
 		double dist = 0;
-
-		/*
-		 * to be implemented
-		 */
-
+		//What is the lower bound here? 
+		//find the minDist between each query point and any trajectory point and sum them for each query point.
+	
+		
+		double minDist = 0;
+		for (Point qp : points) {
+			
+			for (Point tp : p) {
+				if (minDist == 0) {
+					minDist = tp.getMinimumDistance(qp);
+				} else if (tp.getMinimumDistance(qp) < minDist) {
+					minDist = tp.getMinimumDistance(qp);
+				}
+			}
+			dist += minDist;
+			minDist = 0;
+		}
+		
+		
 		return dist;
 	}
 
 	// 5 computes upper bound of unseen trajectories using corresponding points
 	private double computeUpperBound(ArrayList<Point> p, Point[] points) {
 		double dist = 0;
-		/*
-		 * to be implemented
-		 */
-
+		for (int i = 0; i < points.length; i++) {
+			dist += points[i].getMinimumDistance(p.get(i));
+			System.out.println(dist);
+		}
 		return dist;
 	}
 
