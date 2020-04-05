@@ -15,6 +15,10 @@ public class Candidate implements Comparable<Candidate> {
 	public String getID(){
 		return this.id;
 	}
+	public void setDistance(double d) {
+		this.distance = d;
+	}
+	
 	@Override
 	public int compareTo(Candidate e) {
 		// objects of Candidate class is compared based on distance value
