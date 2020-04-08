@@ -32,7 +32,6 @@ package spatialindex.spatialindex;
 public class Point implements IShape, Cloneable
 {
 	public double[] m_pCoords = null;
-	public boolean lambdaPoint = false;
 
 	public Point(double[] pCoords)
 	{
@@ -45,10 +44,6 @@ public class Point implements IShape, Cloneable
 	{
 		m_pCoords = new double[pt.m_pCoords.length];
 		System.arraycopy(pt.m_pCoords, 0, m_pCoords, 0, pt.m_pCoords.length);
-	}
-	
-	public void setLPTrue() {
-		this.lambdaPoint = true;
 	}
 
 	public boolean equals(Object o)
