@@ -31,6 +31,13 @@ public class IKNN {
 	private double lambdaDist;
 	public long iotime;
 	public long candis;
+	
+	//TODO
+	// Fix lambdaDist / UpperBound / LowerBound
+	// Ensure our expected results are then in sorted_candidates
+	// Fix main algorithm to ensure we get expected results. 
+	
+	//With Math.exp(-var) - if var is 0 result is 1. Lower var is higher result is. 
 
 	// compare the distance of two points to given point
 	private double compareDistance(Point a, Point b, Point c) {
@@ -96,8 +103,8 @@ public class IKNN {
 		}
 		int index = 0;
 		int iteration = 1;
-		int counter = 0;
 		int check = 0;
+		int counter = 0;
 		System.out.println("Number of Query Points:" + points.length);
 
 		// filter the impossible trajectories.
@@ -129,16 +136,16 @@ public class IKNN {
 							UB_points.set(i, point);
 						}
 					}
-					
-					 //2. finds trajectory ids for each point and stores those trajectories in
-					 //candidate set, i.e., update candidates.
-	  
+
+					// 2. finds trajectory ids for each point and stores those trajectories in
+					// candidate set, i.e., update candidates.
+
 					String[] tripIDs = trips.get(point.getCoord(0) + "," + point.getCoord(1)).split(",");
 					ArrayList<Point> tripTrajectory = null;
 
 					// For each trip ID
 					for (int n = 0; n < tripIDs.length; n++) {
-						//Load points from database
+						// Load points from database
 						tripTrajectory = new ArrayList<Point>();
 						tripTrajectory = ds.loadTrajectoryPoints(conn, tripIDs[n]);
 						// Add this trajectory to candidates along with tripID
@@ -154,7 +161,7 @@ public class IKNN {
 				// computes upper bound value using farthest point we found so far for each
 				// query point.
 				double UB = computeUpperBound(UB_points, points);
-				
+
 				// Compute LB for all trajectories in cadidates
 				for (Map.Entry<String, ArrayList<Point>> entry : candidates.entrySet()) {
 					// Compute LowerBound
@@ -164,6 +171,7 @@ public class IKNN {
 
 				for (int i = 1; i < k; i++) {
 					LB.poll();
+					//System.out.println(LB.poll());
 				}
 				// Choose k-th lower bound value
 				double k_LB = LB.peek();
@@ -175,7 +183,7 @@ public class IKNN {
 				}
 
 			}
-			// increase lambda value by 50 and continues
+
 			lambda += 50;
 			iteration++;
 			System.out.println("Candidates:" + candidates.size() + "\n");
@@ -183,51 +191,15 @@ public class IKNN {
 
 		System.out.println("End of candidate generation");
 
-		// TODO Test here
-		// -- Print Candidates So Far.
-		//		 for (Map.Entry<String, ArrayList<Point>> entry : candidates.entrySet()) {
-		//			 	System.out.println(entry.getKey());
-		//		 }
-		 
-		// refine the candidate trajectories
-
 		PriorityQueue<Candidate> resultSet = new PriorityQueue<>();// stores top-k results
 		PriorityQueue<Candidate> sorted_candidates = new PriorityQueue<>(Collections.reverseOrder());
-		// candidates are stores in descending order of upper bound distance.
+		// candidates are stored in descending order of upper bound distance.
 
 		for (Map.Entry<String, ArrayList<Point>> entry : candidates.entrySet()) {
 			double candidate_ub = computeCandidateUpperBound(entry.getValue(), points, UB_points);
 			sorted_candidates.add(new Candidate(candidate_ub, entry.getKey()));
 		}
-
-		/*
-		 * 
-		 * TESTING HERE
-		 * 
-		 * Distance for a given trajectory is not correct. Issue with
-		 * computeCandidateDistance. Verify every step of that method. Need database?
-		 * 
-		 * Unused methods: compareDistance
-		 * 
-		 */
-		double distance;
-		for (Candidate can : sorted_candidates) {
-			if (Integer.parseInt(can.getID()) == 410) {
-				distance = computeCandidateDistance(can.getID(), points);
-				System.out.println("\n\n *** This needs to be expected value ***");
-				System.out.println("ID: " + can.getID() + " Dist: " + distance + "\n\n\n\n");
-			}
-		}
-
-		/*
-		 * 
-		 * 
-		 * END TESTING
-		 * 
-		 * 
-		 * 
-		 */
-
+		
 		while (sorted_candidates.peek() != null) {
 			// 3. scan the candidates and terminate as soon as possible (Algorithm 2).
 			for (int i = 1; i <= sorted_candidates.size(); i++) {
@@ -243,7 +215,7 @@ public class IKNN {
 					if (similarity > resultSet.peek().getDistance()) {
 						Candidate result = sorted_candidates.poll();
 						result.setDistance(similarity);
-						resultSet = removeLastElement(resultSet);
+						resultSet.poll();
 						resultSet.add(result);
 					}
 					if (i == sorted_candidates.size()
@@ -270,22 +242,35 @@ public class IKNN {
 	private double computeLowerBound(ArrayList<Point> p, Point[] points) {
 		// find the minDist between each query point and any trajectory point inside
 		// lambda distance and sum them for each query point.
-
+		
+		//TODO You can't have trajectories which don't have at least one point within lambda distance.
+		//That's how we got the fucking trajectories in the first place. 
+		//Either lambda distance is wrong or something here is wrong I don't fucking know. 
+		
 		double dist = 0;
-		double minDist = 0;
+		double minDist = -1;
 		double temp;
 		for (Point qp : points) {
 			for (Point tp : p) {
 				temp = tp.getMinimumDistance(qp);
-				if (minDist == 0 && Math.exp(-temp) <= this.lambdaDist) {
-					minDist = Math.exp(-temp);
-				} else if (Math.exp(-temp) < minDist && Math.exp(-temp) <= this.lambdaDist) {
-					minDist = Math.exp(-temp);
+				System.out.println("Actual mindist "+temp);
+				if (minDist == -1 && temp < lambdaDist) {
+					minDist = temp;
+				} else if (temp < minDist && temp < lambdaDist) {
+					minDist = temp;
 				}
 			}
-			dist += minDist;
-			minDist = 0;
+			if (minDist == -1) {
+				dist+=0;
+			} else {
+				dist += Math.exp(-minDist);
+				minDist = -1;
+			}
+			System.out.println("Lamdist: " +this.lambdaDist);
+			System.out.println("Mindist: "+ minDist);
+			System.out.println("EXPMinDist: " + Math.exp(-minDist) );
 		}
+		System.out.println("Dist: "+ dist+ "\n");
 		return dist;
 	}
 
@@ -293,13 +278,17 @@ public class IKNN {
 	private double computeUpperBound(ArrayList<Point> p, Point[] points) {
 		double dist = 0;
 		double temp = 0;
+		double lambda = 0;
 		for (int i = 0; i < points.length; i++) {
 			temp = points[i].getMinimumDistance(p.get(i));
+			//System.out.println(temp);
+			//System.out.println(Math.exp(-temp));
 			dist += Math.exp(-temp);
+			lambda+=temp;
 		}
-
-		this.lambdaDist = (dist / points.length);
-		System.out.println("LambdaDist: " + lambdaDist);
+		
+		this.lambdaDist = (lambda / points.length);
+		//System.out.println("Lamdist " + this.lambdaDist);
 		return dist;
 	}
 
@@ -310,61 +299,55 @@ public class IKNN {
 		 * The sum of the distance between points inside lambda and Q points Plus the
 		 * remaining points times the UB of unseen traj.
 		 */
-		
-		HashSet<Point> visitedPoints = new HashSet<Point>();
+
 		double dist = 0;
-		double minDist = 0;
+		double minDist = -1;
+		int nonLamCounter = 0;
 		for (Point queryPoint : qp) {
 			for (Point trajPoint : tp) {
 				// Find the minumum distance between a trajectory point and a query point
-				if (minDist == 0 && Math.exp(-(trajPoint.getMinimumDistance(queryPoint))) < this.lambdaDist) {
-					minDist = Math.exp(-(trajPoint.getMinimumDistance(queryPoint)));
-				} else if (Math.exp(-(trajPoint.getMinimumDistance(queryPoint))) < minDist
-						&& Math.exp(-(trajPoint.getMinimumDistance(queryPoint))) < this.lambdaDist) {
-					minDist = Math.exp(-(trajPoint.getMinimumDistance(queryPoint)));
+				if (minDist == -1) {
+					minDist = trajPoint.getMinimumDistance(queryPoint);
+				} else if (trajPoint.getMinimumDistance(queryPoint) < minDist) {
+					minDist = trajPoint.getMinimumDistance(queryPoint);
+				}
+				//If minimum distance is still outside lambda distance
+				if (minDist > this.lambdaDist) {
+					minDist = 0;
+					nonLamCounter++;
 				}
 			}
-			dist += minDist;
-			minDist = 0;
+			dist += Math.exp(-minDist);
+			minDist = -1;
 		}
 
-		// Find out how many trajectory points are within lambda of a query point
-		//TODO All of them, apparently. 
-		for (Point queryPoint : qp) {
-			for (Point trajPoint : tp) {
-				if (Math.exp(-(trajPoint.getMinimumDistance(queryPoint))) < this.lambdaDist) {
-					visitedPoints.add(trajPoint);
-				}
-			}
-		}
-
-		int nonLambdaPoints = (tp.size() - visitedPoints.size());
-		dist += (nonLambdaPoints * this.lambdaDist);
+		dist += (nonLamCounter * this.computeUpperBound(UB_points, qp));
 
 		return dist;
 	}
 
 	// 7 Compute actual distance of the trajectory to query points
 	public double computeCandidateDistance(String id, Point[] points) throws SQLException {
-		//TODO this tends to come out too low. 
 		double dist = 0;
-		double minDist = 0;
-		double temp = 0;
+		double minDist = -1;
 
 		ArrayList<Point> tripTrajectory = new ArrayList<Point>();
 		tripTrajectory = ds.loadTrajectoryPoints(conn, id);
+
+		Point testPoint = null;
 		
 		for (Point queryPoint : points) {
 			for (Point trajectoryPoint : tripTrajectory) {
-				temp = trajectoryPoint.getMinimumDistance(queryPoint);
-				if (minDist == 0) {
-					minDist = Math.exp(-temp);
-				} else if (Math.exp(-temp) < minDist) {
-					minDist = Math.exp(-temp);
+				if (minDist == -1) {
+					minDist = trajectoryPoint.getMinimumDistance(queryPoint);
+					testPoint = trajectoryPoint;
+				} else if (trajectoryPoint.getMinimumDistance(queryPoint) < minDist) {
+					minDist = trajectoryPoint.getMinimumDistance(queryPoint);
+					testPoint = trajectoryPoint;
 				}
 			}
-			dist += minDist;
-			minDist = 0;
+			dist += Math.exp(-minDist);
+			minDist = -1;
 		}
 		return dist;
 	}
