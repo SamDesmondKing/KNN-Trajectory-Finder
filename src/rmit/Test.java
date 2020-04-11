@@ -27,7 +27,7 @@ public class Test {
 		
 		IKNN alg = new IKNN(tree, Settings.trip_ids, ds, conn);
 		
-		String locs = "33.978599548339844,-118.46600341796875,34.11362075805664,-118.3076171875";
+		String locs = "34.06000518798828,-118.44613647460938,34.09083938598633,-118.37472534179688";
 		String []pois = locs.split(",");
 		
 		int num = pois.length/2;

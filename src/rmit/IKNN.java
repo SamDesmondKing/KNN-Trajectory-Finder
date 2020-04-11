@@ -28,16 +28,15 @@ public class IKNN {
 	private HashMap<String, String> trips;
 	private Connection conn = null;
 	private Dataset ds = null;
-	private double lambdaDist;
+	private double[] lambdaDist;
+	private HashSet<Point> lambdaPoints;
 	public long iotime;
 	public long candis;
-	
-	//TODO
+
+	// TODO
 	// Fix lambdaDist / UpperBound / LowerBound
-	// Ensure our expected results are then in sorted_candidates
-	// Fix main algorithm to ensure we get expected results. 
-	
-	//With Math.exp(-var) - if var is 0 result is 1. Lower var is higher result is. 
+	// Should take no more than 2 iterations.
+
 
 	// compare the distance of two points to given point
 	private double compareDistance(Point a, Point b, Point c) {
@@ -93,6 +92,8 @@ public class IKNN {
 		iotime = 0;
 		String output = "";
 		int lambda = k;
+		lambdaDist = new double[points.length];
+		lambdaPoints = new HashSet<Point>();
 
 		// stores candidate trajectories (candidate set C)
 		HashMap<String, ArrayList<Point>> candidates = new HashMap<String, ArrayList<Point>>();
@@ -127,15 +128,21 @@ public class IKNN {
 				System.out.println("Query Point Index: " + index + " Points: " + S.size());
 
 				for (Point point : S) {
-
-					// 1. stores the farthest point as an upper bound, i.e., update UB_points.
+					//Add this point to lambdaPoints
+					lambdaPoints.add(point);
+					
+					// Store the farthest point as an upper bound, i.e., update UB_points.
 					if (UB_points.get(i) == null) {
 						UB_points.set(i, point);
+						// System.out.println("Set 1: "+ point.getMinimumDistance(points[i]));
 					} else {
 						if (point.getMinimumDistance(points[i]) > UB_points.get(i).getMinimumDistance(points[i])) {
 							UB_points.set(i, point);
+							// System.out.println("Set 2: "+ point.getMinimumDistance(points[i]));
 						}
 					}
+					// System.out.println("Final: "+
+					// UB_points.get(i).getMinimumDistance(points[i]));
 
 					// 2. finds trajectory ids for each point and stores those trajectories in
 					// candidate set, i.e., update candidates.
@@ -170,15 +177,15 @@ public class IKNN {
 				}
 
 				for (int i = 1; i < k; i++) {
-					LB.poll();
-					//System.out.println(LB.poll());
+					// LB.poll();
+					System.out.println(LB.poll());
 				}
 				// Choose k-th lower bound value
 				double k_LB = LB.peek();
 
 				System.out.println("Current UB: " + UB + " Current k-th LB: " + k_LB);
 
-				if (k_LB >= UB) {
+				if (k_LB > UB) {
 					check = 1;
 				}
 
@@ -199,27 +206,49 @@ public class IKNN {
 			double candidate_ub = computeCandidateUpperBound(entry.getValue(), points, UB_points);
 			sorted_candidates.add(new Candidate(candidate_ub, entry.getKey()));
 		}
+
 		
+		
+//		int m = sorted_candidates.size();
+//		for (int i = 0; i < m; i++) {
+//			m++;
+//			Candidate printCan = sorted_candidates.poll();
+//			System.out.println("ID: " + printCan.getID() + " UB Dist " + printCan.getDistance() + " Candidate " + i);
+//		}
+
 		while (sorted_candidates.peek() != null) {
 			// 3. scan the candidates and terminate as soon as possible (Algorithm 2).
 			for (int i = 1; i <= sorted_candidates.size(); i++) {
-
+				
+				//System.out.println("Next candidate up: " + sorted_candidates.peek().getID());
 				double similarity = computeCandidateDistance(sorted_candidates.peek().getID(), points);
 
 				if (i <= k) {
 					Candidate result = sorted_candidates.poll();
 					result.setDistance(similarity);
 					resultSet.add(result);
+					//System.out.println("Adding Result ID "+ result.getID());
 				} else {
 
+					//System.out.println("Can ID: " + sorted_candidates.peek().getID());
+					//System.out.println("Similarity: " + similarity);
+					//System.out.println("Resultset.peek.getdistance: " + resultSet.peek().getDistance());
 					if (similarity > resultSet.peek().getDistance()) {
 						Candidate result = sorted_candidates.poll();
+						//System.out.println("Adding Result ID "+ result.getID());
 						result.setDistance(similarity);
+						//System.out.println("Resultset entry to remove: " + resultSet.peek());
 						resultSet.poll();
 						resultSet.add(result);
+					} else {
+						sorted_candidates.poll();
 					}
-					if (i == sorted_candidates.size()
-							|| resultSet.peek().getDistance() >= sorted_candidates.peek().getDistance()) {
+					
+					//Break condition
+					if (i == sorted_candidates.size() || resultSet.peek().getDistance() >= sorted_candidates.peek().getDistance()) {
+						//System.out.println("ResultSet: " + resultSet.peek().getDistance());
+						//System.out.println("Sorted Candidates: " + sorted_candidates.peek().getDistance());
+						//System.out.println("I:" + i);
 						break;
 					}
 				}
@@ -243,34 +272,44 @@ public class IKNN {
 		// find the minDist between each query point and any trajectory point inside
 		// lambda distance and sum them for each query point.
 		
-		//TODO You can't have trajectories which don't have at least one point within lambda distance.
-		//That's how we got the fucking trajectories in the first place. 
-		//Either lambda distance is wrong or something here is wrong I don't fucking know. 
-		
+		ArrayList<Point> trajLambdaPoints = new ArrayList<Point>();
+		//Filter out non-lambdaPoints
+		for (Point i : this.lambdaPoints) {
+			for (int j = 0; j < p.size(); j++) {
+				if (p.get(j).toString().equals(i.toString())) {
+					trajLambdaPoints.add(p.get(j));
+				}
+			}
+		}
+		//System.out.println("Size after removal: " + trajLambdaPoints.size());
+
 		double dist = 0;
 		double minDist = -1;
 		double temp;
-		for (Point qp : points) {
-			for (Point tp : p) {
-				temp = tp.getMinimumDistance(qp);
-				System.out.println("Actual mindist "+temp);
-				if (minDist == -1 && temp < lambdaDist) {
+		for (int i = 0; i < points.length; i++) {
+			for (Point tp : trajLambdaPoints) {
+				temp = tp.getMinimumDistance(points[i]);
+				// System.out.println("Actual mindist "+temp);
+				if (minDist == -1) {
 					minDist = temp;
-				} else if (temp < minDist && temp < lambdaDist) {
+				} else if (temp < minDist) {
 					minDist = temp;
 				}
+				// System.out.println("ResultDist: " + minDist);
 			}
 			if (minDist == -1) {
-				dist+=0;
+				dist += 0;
 			} else {
 				dist += Math.exp(-minDist);
 				minDist = -1;
 			}
-			System.out.println("Lamdist: " +this.lambdaDist);
-			System.out.println("Mindist: "+ minDist);
-			System.out.println("EXPMinDist: " + Math.exp(-minDist) );
+			// System.out.println("Lamdist: " +this.lambdaDist);
+			// System.out.println("Dist inside: "+ dist);
 		}
-		System.out.println("Dist: "+ dist+ "\n");
+		// System.out.println("Dist: "+ dist+ "\n");
+		
+		
+		
 		return dist;
 	}
 
@@ -278,51 +317,48 @@ public class IKNN {
 	private double computeUpperBound(ArrayList<Point> p, Point[] points) {
 		double dist = 0;
 		double temp = 0;
-		double lambda = 0;
 		for (int i = 0; i < points.length; i++) {
 			temp = points[i].getMinimumDistance(p.get(i));
-			//System.out.println(temp);
-			//System.out.println(Math.exp(-temp));
+			// System.out.println("Mindist:"+ temp);
+			// System.out.println(Math.exp(-temp));
 			dist += Math.exp(-temp);
-			lambda+=temp;
+			if (this.lambdaDist[i] == 0) {
+				this.lambdaDist[i] = temp;
+			} else if (temp > this.lambdaDist[i]) {
+				this.lambdaDist[i] = temp;
+			}
 		}
-		
-		this.lambdaDist = (lambda / points.length);
-		//System.out.println("Lamdist " + this.lambdaDist);
+		// System.out.println("Lamdist " + this.lambdaDist[0]);
+		// System.out.println("EXP Lamdist a " + Math.exp(-this.lambdaDist[0]));
+		// System.out.println("Lamdist " + this.lambdaDist[1]);
+		// System.out.println("EXP Lamdist b " + Math.exp(-this.lambdaDist[1]));
+		// System.out.println("EXP lambdist sum "+Math.exp(-(this.lambdaDist[0]) +
+		// Math.exp(-(this.lambdaDist[1]))));
 		return dist;
 	}
 
 	// 6 compute the upper bound of candidates
-	private double computeCandidateUpperBound(ArrayList<Point> tp, Point[] qp, ArrayList<Point> UB_points) {
+	private double computeCandidateUpperBound(ArrayList<Point> tripTrajectory, Point[] points, ArrayList<Point> UB_points) {
 
-		/*
-		 * The sum of the distance between points inside lambda and Q points Plus the
-		 * remaining points times the UB of unseen traj.
-		 */
-
-		double dist = 0;
+		//1. get the two closest points
+		//2. if Di > LDi,  Di = LDi. 
+		
 		double minDist = -1;
-		int nonLamCounter = 0;
-		for (Point queryPoint : qp) {
-			for (Point trajPoint : tp) {
-				// Find the minumum distance between a trajectory point and a query point
+		double dist = 0;
+		for (int i = 0; i < points.length; i++) {
+			for (Point trajectoryPoint : tripTrajectory) {
 				if (minDist == -1) {
-					minDist = trajPoint.getMinimumDistance(queryPoint);
-				} else if (trajPoint.getMinimumDistance(queryPoint) < minDist) {
-					minDist = trajPoint.getMinimumDistance(queryPoint);
+					minDist = trajectoryPoint.getMinimumDistance(points[i]);
+				} else if (trajectoryPoint.getMinimumDistance(points[i]) < minDist) {
+					minDist = trajectoryPoint.getMinimumDistance(points[i]);
 				}
-				//If minimum distance is still outside lambda distance
-				if (minDist > this.lambdaDist) {
-					minDist = 0;
-					nonLamCounter++;
-				}
+			}
+			if (minDist > points[i].getMinimumDistance(UB_points.get(i))) {
+				minDist = points[i].getMinimumDistance(UB_points.get(i));
 			}
 			dist += Math.exp(-minDist);
 			minDist = -1;
 		}
-
-		dist += (nonLamCounter * this.computeUpperBound(UB_points, qp));
-
 		return dist;
 	}
 
@@ -334,16 +370,12 @@ public class IKNN {
 		ArrayList<Point> tripTrajectory = new ArrayList<Point>();
 		tripTrajectory = ds.loadTrajectoryPoints(conn, id);
 
-		Point testPoint = null;
-		
 		for (Point queryPoint : points) {
 			for (Point trajectoryPoint : tripTrajectory) {
 				if (minDist == -1) {
 					minDist = trajectoryPoint.getMinimumDistance(queryPoint);
-					testPoint = trajectoryPoint;
 				} else if (trajectoryPoint.getMinimumDistance(queryPoint) < minDist) {
 					minDist = trajectoryPoint.getMinimumDistance(queryPoint);
-					testPoint = trajectoryPoint;
 				}
 			}
 			dist += Math.exp(-minDist);
