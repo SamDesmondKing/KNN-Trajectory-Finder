@@ -29,7 +29,7 @@ public class IKNN {
 	private Connection conn = null;
 	private Dataset ds = null;
 	private double[] lambdaDist;
-	private HashSet<Point> lambdaPoints;
+	private HashSet<String> lambdaPoints;
 	public long iotime;
 	public long candis;
 
@@ -93,7 +93,7 @@ public class IKNN {
 		String output = "";
 		int lambda = k;
 		lambdaDist = new double[points.length];
-		lambdaPoints = new HashSet<Point>();
+		lambdaPoints = new HashSet<String>();
 
 		// stores candidate trajectories (candidate set C)
 		HashMap<String, ArrayList<Point>> candidates = new HashMap<String, ArrayList<Point>>();
@@ -129,7 +129,7 @@ public class IKNN {
 
 				for (Point point : S) {
 					//Add this point to lambdaPoints
-					lambdaPoints.add(point);
+					lambdaPoints.add(point.toString());
 					
 					// Store the farthest point as an upper bound, i.e., update UB_points.
 					if (UB_points.get(i) == null) {
@@ -177,7 +177,7 @@ public class IKNN {
 				}
 
 				for (int i = 1; i < k; i++) {
-					// LB.poll();
+					//LB.poll();
 					System.out.println(LB.poll());
 				}
 				// Choose k-th lower bound value
@@ -188,7 +188,6 @@ public class IKNN {
 				if (k_LB > UB) {
 					check = 1;
 				}
-
 			}
 
 			lambda += 50;
@@ -207,8 +206,6 @@ public class IKNN {
 			sorted_candidates.add(new Candidate(candidate_ub, entry.getKey()));
 		}
 
-		
-		
 //		int m = sorted_candidates.size();
 //		for (int i = 0; i < m; i++) {
 //			m++;
@@ -271,30 +268,18 @@ public class IKNN {
 	private double computeLowerBound(ArrayList<Point> p, Point[] points) {
 		// find the minDist between each query point and any trajectory point inside
 		// lambda distance and sum them for each query point.
-		
-		ArrayList<Point> trajLambdaPoints = new ArrayList<Point>();
-		//Filter out non-lambdaPoints
-		for (Point i : this.lambdaPoints) {
-			for (int j = 0; j < p.size(); j++) {
-				if (p.get(j).toString().equals(i.toString())) {
-					trajLambdaPoints.add(p.get(j));
-				}
-			}
-		}
-		//System.out.println("Size after removal: " + trajLambdaPoints.size());
 
 		double dist = 0;
 		double minDist = -1;
-		double temp;
+		double temp; 
 		for (int i = 0; i < points.length; i++) {
-			for (Point tp : trajLambdaPoints) {
-				temp = tp.getMinimumDistance(points[i]);
-				// System.out.println("Actual mindist "+temp);
-				if (minDist == -1) {
+			for (int j = 0; j < p.size(); j++) {
+				temp = p.get(j).getMinimumDistance(points[i]);
+				if (minDist == -1 && this.lambdaPoints.contains(p.get(j).toString())) {
 					minDist = temp;
-				} else if (temp < minDist) {
+				} else if (temp < minDist && this.lambdaPoints.contains(p.get(j).toString())) {
 					minDist = temp;
-				}
+				} 
 				// System.out.println("ResultDist: " + minDist);
 			}
 			if (minDist == -1) {
@@ -307,8 +292,6 @@ public class IKNN {
 			// System.out.println("Dist inside: "+ dist);
 		}
 		// System.out.println("Dist: "+ dist+ "\n");
-		
-		
 		
 		return dist;
 	}
