@@ -47,7 +47,7 @@ public class Test {
 		System.out.println();
 		
 		long startTime = System.currentTimeMillis();
-		String ids = alg.computeIKNN(points, 10);
+		String ids = alg.computeIKNN(points, 3);
 		long stopTime = System.currentTimeMillis();
 		System.out.println("IKNN query runtime: " + (stopTime - startTime) + " IO: " + alg.iotime);
 		System.out.println("\nID\tDISTANCE\n--------------------------\n" + ids);	

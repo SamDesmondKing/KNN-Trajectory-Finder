@@ -298,27 +298,6 @@ public class IKNN {
 		return dist;
 	}
 
-	/*
-	 * -- Utility Methods --
-	 */
-
-	// Removes the element at the end of a PriorityQueue.
-	public PriorityQueue<Candidate> removeLastElement(PriorityQueue<Candidate> p) {
-		PriorityQueue<Candidate> newQueue = new PriorityQueue<Candidate>();
-		while (p.size() > 1) {
-			newQueue.add(p.poll());
-		}
-		return newQueue;
-	}
-
-	// Converts a String array of length 2 to a double array of length 2.
-	public double[] StringCoordsToDouble(String[] input) {
-		double coord1 = Double.parseDouble(input[0]);
-		double coord2 = Double.parseDouble(input[1]);
-		double[] coords = { coord1, coord2 };
-		return coords;
-	}
-
 	public int getIntersectingPoints(ArrayList<Point> s, int lambda, Point p) {
 		MyVisitor v = new MyVisitor();
 		// finds the nearest lambda points for given query point p
